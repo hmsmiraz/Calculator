@@ -1,7 +1,8 @@
 const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
+const cors    = require('cors');
+const morgan  = require('morgan');
 
+const authRoutes       = require('./routes/auth.routes');
 const calculatorRoutes = require('./routes/calculator.routes');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
@@ -11,8 +12,9 @@ const app = express();
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
 app.use(express.json());
@@ -22,30 +24,27 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// ── Health check ───────────────────────────────────────────────────────────────
+// ── Health ─────────────────────────────────────────────────────────────────────
 
-app.get('/health', (req, res) => {
-  res.json({ success: true, status: 'healthy', uptime: process.uptime() });
-});
+app.get('/health', (req, res) =>
+  res.json({ success: true, status: 'healthy', uptime: process.uptime() })
+);
 
-app.get('/', (req, res) => {
+app.get('/', (req, res) =>
   res.json({
     success: true,
-    message: 'Calculator API is running 🚀',
-    version: '1.0.0',
+    message: 'Calculator API v2 🚀',
+    version: '2.0.0',
     endpoints: {
-      calculate:     'POST /api/v1/calculator/calculate',
-      add:           'POST /api/v1/calculator/add',
-      subtract:      'POST /api/v1/calculator/subtract',
-      multiply:      'POST /api/v1/calculator/multiply',
-      divide:        'POST /api/v1/calculator/divide',
-      operations:    'GET  /api/v1/calculator/operations',
+      auth:       '/api/v1/auth',
+      calculator: '/api/v1/calculator',
     },
-  });
-});
+  })
+);
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 
+app.use('/api/v1/auth',       authRoutes);
 app.use('/api/v1/calculator', calculatorRoutes);
 
 // ── Error handlers ─────────────────────────────────────────────────────────────

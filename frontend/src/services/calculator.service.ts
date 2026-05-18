@@ -1,57 +1,52 @@
-import { CalculateRequest, ApiResponse } from '@/types/calculator.types';
+import { Operator, CalcApiResponse, HistoryResponse } from '@/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-/**
- * Central fetch wrapper — handles JSON + error extraction.
- */
-async function apiFetch(endpoint: string, body: object): Promise<ApiResponse> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+const authFetch = (url: string, token: string, options: RequestInit = {}) =>
+  fetch(`${API}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
   });
 
-  const data: ApiResponse = await res.json();
-  return data;
-}
+export const calculate = async (
+  a: number,
+  b: number,
+  operator: Operator,
+  token: string
+): Promise<CalcApiResponse> => {
+  const res = await authFetch('/api/v1/calculator/calculate', token, {
+    method: 'POST',
+    body: JSON.stringify({ a, b, operator }),
+  });
+  return res.json();
+};
 
-/**
- * Unified calculate — sends operator in the body.
- * POST /api/v1/calculator/calculate
- */
-export async function calculate(payload: CalculateRequest): Promise<ApiResponse> {
-  return apiFetch('/api/v1/calculator/calculate', payload);
-}
+export const getHistory = async (
+  token: string,
+  page = 1,
+  limit = 20
+): Promise<HistoryResponse> => {
+  const res = await authFetch(
+    `/api/v1/calculator/history?page=${page}&limit=${limit}`,
+    token
+  );
+  return res.json();
+};
 
-/**
- * Dedicated add endpoint.
- * POST /api/v1/calculator/add
- */
-export async function add(a: number, b: number): Promise<ApiResponse> {
-  return apiFetch('/api/v1/calculator/add', { a, b });
-}
+export const clearHistory = async (token: string) => {
+  const res = await authFetch('/api/v1/calculator/history', token, {
+    method: 'DELETE',
+  });
+  return res.json();
+};
 
-/**
- * Dedicated subtract endpoint.
- * POST /api/v1/calculator/subtract
- */
-export async function subtract(a: number, b: number): Promise<ApiResponse> {
-  return apiFetch('/api/v1/calculator/subtract', { a, b });
-}
-
-/**
- * Dedicated multiply endpoint.
- * POST /api/v1/calculator/multiply
- */
-export async function multiply(a: number, b: number): Promise<ApiResponse> {
-  return apiFetch('/api/v1/calculator/multiply', { a, b });
-}
-
-/**
- * Dedicated divide endpoint.
- * POST /api/v1/calculator/divide
- */
-export async function divide(a: number, b: number): Promise<ApiResponse> {
-  return apiFetch('/api/v1/calculator/divide', { a, b });
-}
+export const deleteHistoryEntry = async (id: number, token: string) => {
+  const res = await authFetch(`/api/v1/calculator/history/${id}`, token, {
+    method: 'DELETE',
+  });
+  return res.json();
+};

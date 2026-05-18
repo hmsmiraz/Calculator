@@ -1,34 +1,22 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 
 const {
   calculateHandler,
-  addHandler,
-  subtractHandler,
-  multiplyHandler,
-  divideHandler,
-  getOperations,
+  getHistory,
+  clearHistory,
+  deleteHistoryEntry,
 } = require('../controllers/calculator.controller');
 
-const {
-  validateTwoNumbers,
-  validateCalculate,
-} = require('../middleware/validators.middleware');
+const { protect }          = require('../middleware/auth.middleware');
+const { validateCalculate } = require('../middleware/validators.middleware');
 
-// ── GET ────────────────────────────────────────────────────────────────────────
+// All calculator routes are protected — user must be logged in
+router.use(protect);
 
-// List all supported operations
-router.get('/operations', getOperations);
-
-// ── POST ───────────────────────────────────────────────────────────────────────
-
-// Unified endpoint — requires operator in body
-router.post('/calculate', validateCalculate, calculateHandler);
-
-// Dedicated endpoints
-router.post('/add',      validateTwoNumbers, addHandler);
-router.post('/subtract', validateTwoNumbers, subtractHandler);
-router.post('/multiply', validateTwoNumbers, multiplyHandler);
-router.post('/divide',   validateTwoNumbers, divideHandler);
+router.post('/calculate',     validateCalculate, calculateHandler);
+router.get('/history',        getHistory);
+router.delete('/history',     clearHistory);
+router.delete('/history/:id', deleteHistoryEntry);
 
 module.exports = router;

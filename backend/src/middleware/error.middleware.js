@@ -1,6 +1,3 @@
-/**
- * 404 handler — catches any request that didn't match a route.
- */
 const notFoundHandler = (req, res) => {
   res.status(404).json({
     success: false,
@@ -8,28 +5,25 @@ const notFoundHandler = (req, res) => {
   });
 };
 
-/**
- * Global error handler — catches errors passed via next(err).
- * Must have 4 parameters for Express to treat it as an error handler.
- */
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
   console.error(`[ERROR] ${err.message}`);
 
-  // Known application errors (e.g. division by zero)
-  if (err.message === 'Division by zero is not allowed') {
-    return res.status(400).json({
+  // PostgreSQL unique violation (duplicate email)
+  if (err.code === '23505') {
+    return res.status(409).json({
       success: false,
-      message: err.message,
+      message: 'Email already registered.',
     });
   }
 
-  // Unknown / unexpected errors
+  if (err.message === 'Division by zero is not allowed') {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+
   res.status(500).json({
     success: false,
-    message: process.env.NODE_ENV === 'development'
-      ? err.message
-      : 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
   });
 };
 
