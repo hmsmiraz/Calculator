@@ -101,51 +101,56 @@ export default function Calculator() {
   }, []);
 
   const handleEquals = useCallback(async () => {
-    setState((prev) => {
-      if (!prev.operator || prev.waitingForSecond) return prev;
+  if (!state.operator || state.waitingForSecond) return;
 
-      const a = parseFloat(prev.firstNum);
-      const b = parseFloat(prev.display);
-      const op = prev.operator;
-      const expr = `${prev.firstNum} ${op} ${prev.display}`;
+  const a = parseFloat(state.firstNum);
+  const b = parseFloat(state.display);
+  const op = state.operator;
+  const expr = `${state.firstNum} ${op} ${state.display}`;
 
-      setExpression(expr + ' =');
-      setLoading(true);
-      setError(null);
+  setExpression(expr + ' =');
+  setLoading(true);
+  setError(null);
 
-      calculate({ a, b, operator: op })
-        .then((res) => {
-          if (res.success && res.data) {
-            const resultStr = String(res.data.result);
-            setState((s) => ({
-              ...s,
-              display: resultStr,
-              firstNum: resultStr,
-              operator: null,
-              waitingForSecond: false,
-              justCalculated: true,
-            }));
-            setHistory((h) => [
-              {
-                id: crypto.randomUUID(),
-                expression: res.data!.expression,
-                result: res.data!.result,
-                operation: res.data!.operation,
-                timestamp: res.data!.timestamp,
-              },
-              ...h.slice(0, 19), // keep last 20
-            ]);
-          } else {
-            setError(res.message || 'Calculation failed');
-            setState((s) => ({ ...s, display: 'Error' }));
-          }
-        })
-        .catch(() => setError('Network error — is the backend running?'))
-        .finally(() => setLoading(false));
+  try {
+    const res = await calculate({ a, b, operator: op });
 
-      return prev; // will be updated in the .then above
-    });
-  }, []);
+    if (res.success && res.data) {
+      const resultStr = String(res.data.result);
+
+      setState((prev) => ({
+        ...prev,
+        display: resultStr,
+        firstNum: resultStr,
+        operator: null,
+        waitingForSecond: false,
+        justCalculated: true,
+      }));
+
+      setHistory((prev) => [
+        {
+          id: crypto.randomUUID(),
+          expression: res.data!.expression,
+          result: res.data!.result,
+          operation: res.data!.operation,
+          timestamp: res.data!.timestamp,
+        },
+        ...prev.slice(0, 19),
+      ]);
+    } else {
+      setError(res.message || 'Calculation failed');
+
+      setState((prev) => ({
+        ...prev,
+        display: 'Error',
+      }));
+    }
+  } catch {
+    setError('Network error — is the backend running?');
+  } finally {
+    setLoading(false);
+  }
+}, [state]);
 
   const handleClear = useCallback(() => {
     setState(INITIAL_STATE);
