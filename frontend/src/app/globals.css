@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth number transitions */
+@layer utilities {
+  .transition-result {
+    transition: all 0.2s ease-in-out;
+  }
+}
