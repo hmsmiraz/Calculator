@@ -1,24 +1,20 @@
-import Calculator from '@/components/Calculator';
-import ApiStatus from '@/components/ApiStatus';
+'use client';
 
-export default function Home() {
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+
+export default function RootPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) router.replace(user ? '/dashboard' : '/auth/login');
+  }, [user, loading, router]);
+
   return (
-    <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <h1 className="text-white text-3xl font-bold tracking-tight mb-1">
-          Calculator
-        </h1>
-        <ApiStatus />
-      </div>
-
-      {/* Calculator + History */}
-      <Calculator />
-
-      {/* Footer */}
-      <p className="mt-10 text-gray-700 text-xs">
-        Basic Calculator Application
-      </p>
-    </main>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
   );
 }
