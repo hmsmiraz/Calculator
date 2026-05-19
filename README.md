@@ -1,4 +1,4 @@
-# Branch 1 — Basic Full-Stack Calculator
+# Main Branch — Basic Full-Stack Calculator
 
 A clean full-stack calculator application.  
 **Frontend** — Next.js 14 + TypeScript + Tailwind CSS  
