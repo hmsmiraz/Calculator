@@ -12,7 +12,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('\n🚀 Calculator API v2 Started');
   console.log('================================');
-  console.log(`🌍 Environment : ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌍 Environment : ${NODE_ENV}`);
   console.log(`📡 Port        : ${PORT}`);
   console.log(`🔗 URL         : http://0.0.0.0:${PORT}`);
   console.log(`🔐 Auth        : http://0.0.0.0:${PORT}/api/v1/auth`);
