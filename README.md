@@ -16,231 +16,158 @@ Browser → API Gateway (:4000) → auth-service (:4001)
 
 ```
 branch-3-calculator/
-├── docker-compose.yml          ← orchestrates everything
-├── init.sql                    ← DB schema auto-run on first boot
-├── .gitignore
-│
-├── api-gateway/                ← Single entry point — port 4000
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── app.js
-│   │   ├── routes/proxy.routes.js       ← forwards to services
-│   │   ├── middleware/
-│   │   │   ├── auth.middleware.js       ← JWT verify + blacklist check
-│   │   │   └── rateLimit.middleware.js  ← Redis-backed rate limiting
-│   │   └── utils/redis.js
-│   ├── Dockerfile
-│   └── package.json
-│
-├── auth-service/               ← Register / Login / Me — port 4001
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── app.js
-│   │   ├── config/   db.js + redis.js
-│   │   ├── models/   user.model.js
-│   │   ├── controllers/auth.controller.js
-│   │   ├── routes/auth.routes.js
-│   │   └── utils/jwt.utils.js
-│   ├── Dockerfile
-│   └── package.json
-│
-├── calculator-service/         ← Math + History — port 4002
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── app.js
-│   │   ├── config/   db.js + redis.js
-│   │   ├── models/   calculation.model.js
-│   │   ├── controllers/calculator.controller.js
-│   │   ├── routes/calculator.routes.js
-│   │   └── utils/calculator.utils.js
-│   ├── Dockerfile
-│   └── package.json
-│
-├── user-service/               ← Profile + Stats — port 4003
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── app.js
-│   │   ├── config/   db.js + redis.js
-│   │   ├── controllers/user.controller.js
-│   │   └── routes/user.routes.js
-│   ├── Dockerfile
-│   └── package.json
-│
-└── frontend/                   ← Next.js — port 3000
-    ├── src/
-    │   ├── app/
-    │   │   ├── layout.tsx
-    │   │   ├── page.tsx
-    │   │   ├── auth/login/page.tsx
-    │   │   ├── auth/register/page.tsx
-    │   │   └── dashboard/page.tsx
-    │   ├── components/
-    │   │   ├── calculator/
-    │   │   │   ├── Calculator.tsx
-    │   │   │   └── HistoryPanel.tsx
-    │   │   └── ui/
-    │   │       ├── Navbar.tsx
-    │   │       └── StatsPanel.tsx
-    │   ├── context/AuthContext.tsx
-    │   ├── services/
-    │   │   ├── calculator.service.ts
-    │   │   └── user.service.ts
-    │   └── types/index.ts
-    ├── Dockerfile                ← no public/ folder copy (not needed)
-    └── package.json
+├── docker-compose.yml
+├── init.sql
+├── api-gateway/        ← port 4000
+├── auth-service/       ← port 4001
+├── calculator-service/ ← port 4002
+├── user-service/       ← port 4003
+└── frontend/           ← port 3000
 ```
 
 ---
 
-## Prerequisites — Install Docker
+## Port Map
+
+| Service              | Port | Description                       |
+|----------------------|------|-----------------------------------|
+| Frontend (Next.js)   | 3000 | Browser UI                        |
+| API Gateway          | 4000 | Single entry point for all API    |
+| Auth Service         | 4001 | Register, login, JWT              |
+| Calculator Service   | 4002 | Math calculations + history       |
+| User Service         | 4003 | Profile + per-operation stats     |
+| PostgreSQL           | 5432 | Persistent database               |
+| Redis                | 6379 | Cache + rate limiting + blacklist |
+
+---
+
+## Local Development
+
+### Prerequisites
 
 ```bash
-# Step 1 — Install Docker
 sudo apt update
 sudo apt install -y docker.io
 
-# Step 2 — Install Docker Compose standalone
 sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-linux-x86_64" \
   -o /usr/local/bin/docker-compose
-
-# Step 3 — Make it executable
 sudo chmod +x /usr/local/bin/docker-compose
-
-# Step 4 — Verify both installed
-docker --version
-docker-compose --version
 ```
 
-> ⚠️ Always use `docker-compose` (with hyphen), NOT `docker compose` (with space).
-> The space version requires the Docker Compose plugin which is a separate install.
-
----
-
-## Option A — Run with Docker (Recommended)
-
-### Allow Docker without sudo (optional)
+### Run
 
 ```bash
-sudo usermod -aG docker $USER
-
-# Install newgrp if missing on your system
-sudo apt install login
-
-# Apply group change without logging out
-newgrp docker
-```
-
-If you skip this, just prefix every docker command with `sudo`.
-
-### Important — stop local PostgreSQL first
-
-If you ran Branch 2 locally, your machine has PostgreSQL running on port 5432.
-Docker needs that same port. Stop it before starting:
-
-```bash
+# Stop local postgres if running (frees port 5432)
 sudo systemctl stop postgresql
-```
 
-### Start everything
-
-```bash
 cd branch-3-calculator
 sudo docker-compose up --build
 ```
 
-PostgreSQL takes 15–30 seconds to fully boot. Services will automatically
-retry if they start before the database is ready — this is normal, just wait.
+Open → **http://localhost:3000**
 
-You know everything is ready when you see:
-```
-✅ [auth-service] PostgreSQL connected
-✅ [auth-service] Redis connected
-✅ auth-service running on port 4001
-✅ [calculator-service] PostgreSQL connected
-✅ calculator-service running on port 4002
-✅ [user-service] PostgreSQL connected
-✅ user-service running on port 4003
-🚀 API Gateway Started on port 4000
-```
-
-Then open → **http://localhost:3000**
-
----
-
-## Stopping the Application
-
-### Method 1 — Ctrl + C in the running terminal
-Press `Ctrl + C` once and wait a few seconds.
-
-### Method 2 — From a new terminal (if Ctrl + C is stuck)
+### Stop
 
 ```bash
-# Open a new terminal
-sudo docker-compose -f ~/Calculator/docker-compose.yml down
-
-# Or force stop all containers immediately
-sudo docker stop $(sudo docker ps -q)
-sudo docker-compose down
-```
-
-Verify everything stopped:
-```bash
-sudo docker ps
-# Should show an empty list
-```
-
----
-
-## Other Useful Docker Commands
-
-```bash
-# Start without rebuilding (faster after first run)
-sudo docker-compose up
-
-# Stop and remove containers but keep data volumes
+# Ctrl+C in terminal, or from a new terminal:
 sudo docker-compose down
 
-# Stop and delete ALL data — full fresh start
+# Full reset including data
 sudo docker-compose down -v
-
-# View live logs of a specific service
-sudo docker-compose logs -f auth-service
-sudo docker-compose logs -f api-gateway
-sudo docker-compose logs -f calc_postgres
-
-# Rebuild only one service after a code change
-sudo docker-compose up --build auth-service
-
-# See all running containers and their status
-sudo docker ps
 ```
 
 ---
 
-## Option B — Run Locally Without Docker
+## Common Issues
 
-Use this if you want live code changes during development.
+| Error | Fix |
+|-------|-----|
+| `address already in use :5432` | `sudo systemctl stop postgresql` |
+| `address already in use :6379` | `sudo systemctl stop redis-server` |
+| `EAI_AGAIN postgres` | Services auto-retry — wait 30s, or run `docker-compose down -v && docker-compose up` |
+| `Ctrl+C stuck` | New terminal → `sudo docker stop $(sudo docker ps -q)` |
+| `docker compose: unknown command` | Use `docker-compose` with hyphen |
+| `newgrp not found` | `sudo apt install login` then `newgrp docker` |
 
-### Step 1 — Install PostgreSQL and Redis
+---
+
+---
+
+# Deployment Guide
+
+Three ways to deploy Branch 3 to a production Linux server.
+
+---
+
+## Method 1 — Bare Metal on AWS EC2
+
+Deploy all services directly on a single EC2 instance without Docker.
+
+### Step 1 — Launch EC2 Instance
+
+- Go to AWS Console → EC2 → Launch Instance
+- **AMI**: Ubuntu 22.04 LTS
+- **Instance type**: t3.medium (2 vCPU, 4GB RAM minimum)
+- **Storage**: 20GB gp3
+- **Security Group** — open these ports:
+
+| Port | Source    | Purpose             |
+|------|-----------|---------------------|
+| 22   | Your IP   | SSH access          |
+| 80   | 0.0.0.0/0 | HTTP (Nginx)        |
+| 443  | 0.0.0.0/0 | HTTPS (Nginx)       |
+| 3000 | 0.0.0.0/0 | Frontend (optional) |
+| 4000 | 0.0.0.0/0 | API Gateway         |
+
+- Create or select a key pair, download the `.pem` file
+
+### Step 2 — SSH into the Server
 
 ```bash
-sudo apt update
-sudo apt install -y postgresql postgresql-contrib redis-server
-
-sudo systemctl start postgresql redis-server
-sudo systemctl enable postgresql redis-server
+chmod 400 your-key.pem
+ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
 ```
 
-### Step 2 — Create the database
+### Step 3 — Install Dependencies
 
 ```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify
+node --version   # v20.x.x
+npm --version
+
+# Install PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# Install Redis
+sudo apt install -y redis-server
+
+# Install Nginx (reverse proxy)
+sudo apt install -y nginx
+
+# Install PM2 (process manager — keeps services running)
+sudo npm install -g pm2
+```
+
+### Step 4 — Configure PostgreSQL
+
+```bash
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
 sudo -u postgres psql
 ```
 
-Inside psql, run these one by one:
+Inside psql:
 ```sql
 CREATE DATABASE calculator_db;
-CREATE USER calculator_user WITH ENCRYPTED PASSWORD 'calculator_pass';
+CREATE USER calculator_user WITH ENCRYPTED PASSWORD 'your_strong_password';
 GRANT ALL PRIVILEGES ON DATABASE calculator_db TO calculator_user;
 \c calculator_db
 GRANT ALL ON SCHEMA public TO calculator_user;
@@ -249,204 +176,923 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO calculator_u
 \q
 ```
 
-Run the schema:
+### Step 5 — Configure Redis
+
 ```bash
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+
+# Secure Redis — bind to localhost only
+sudo nano /etc/redis/redis.conf
+# Find and set: bind 127.0.0.1
+# Find and set: requirepass your_redis_password
+
+sudo systemctl restart redis-server
+```
+
+### Step 6 — Upload and Configure the Project
+
+```bash
+# On your LOCAL machine — upload the project
+scp -i your-key.pem -r branch-3-calculator ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/
+
+# Back on the SERVER
+cd /home/ubuntu/branch-3-calculator
+
+# Run DB schema
 sudo -u postgres psql -d calculator_db -f init.sql
+
+# Install dependencies for all services
+for service in api-gateway auth-service calculator-service user-service; do
+  cd $service && npm install --production && cd ..
+done
+
+# Install frontend dependencies and build
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-### Step 3 — Configure environment files
+### Step 7 — Create Environment Files
 
 ```bash
-cd branch-3-calculator
+# Auth Service
+cat > auth-service/.env << EOF
+PORT=4001
+NODE_ENV=production
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=calculator_db
+DB_USER=calculator_user
+DB_PASSWORD=your_strong_password
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+JWT_SECRET=your_very_long_random_jwt_secret_here
+JWT_EXPIRES_IN=7d
+EOF
 
-cp api-gateway/.env.example        api-gateway/.env
-cp auth-service/.env.example       auth-service/.env
-cp calculator-service/.env.example calculator-service/.env
-cp user-service/.env.example       user-service/.env
-cp frontend/.env.local.example     frontend/.env.local
+# Calculator Service
+cat > calculator-service/.env << EOF
+PORT=4002
+NODE_ENV=production
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=calculator_db
+DB_USER=calculator_user
+DB_PASSWORD=your_strong_password
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+JWT_SECRET=your_very_long_random_jwt_secret_here
+EOF
+
+# User Service
+cat > user-service/.env << EOF
+PORT=4003
+NODE_ENV=production
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=calculator_db
+DB_USER=calculator_user
+DB_PASSWORD=your_strong_password
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+EOF
+
+# API Gateway
+cat > api-gateway/.env << EOF
+PORT=4000
+NODE_ENV=production
+AUTH_SERVICE_URL=http://localhost:4001
+CALC_SERVICE_URL=http://localhost:4002
+USER_SERVICE_URL=http://localhost:4003
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+JWT_SECRET=your_very_long_random_jwt_secret_here
+FRONTEND_URL=http://<EC2_PUBLIC_IP>
+EOF
+
+# Frontend
+cat > frontend/.env.local << EOF
+NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>/api
+EOF
 ```
 
-### Step 4 — Install dependencies
+### Step 8 — Start Services with PM2
 
 ```bash
-cd api-gateway        && npm install && cd ..
-cd auth-service       && npm install && cd ..
-cd calculator-service && npm install && cd ..
-cd user-service       && npm install && cd ..
-cd frontend           && npm install && cd ..
+cd /home/ubuntu/branch-3-calculator
+
+# Start all backend services
+pm2 start auth-service/src/index.js       --name auth-service
+pm2 start calculator-service/src/index.js --name calculator-service
+pm2 start user-service/src/index.js       --name user-service
+pm2 start api-gateway/src/index.js        --name api-gateway
+
+# Start frontend
+pm2 start frontend/node_modules/.bin/next \
+  --name frontend -- start --port 3000
+
+# Save PM2 process list and enable auto-start on reboot
+pm2 save
+pm2 startup
+# Run the command PM2 prints out
+
+# Check all services running
+pm2 status
 ```
 
-### Step 5 — Run all services (need 5 terminals)
+### Step 9 — Configure Nginx
 
-**Terminal 1 — Auth Service**
 ```bash
-cd auth-service && npm run dev        # → :4001
+sudo nano /etc/nginx/sites-available/calculator
 ```
 
-**Terminal 2 — Calculator Service**
+Paste this config:
+```nginx
+server {
+    listen 80;
+    server_name <EC2_PUBLIC_IP>;
+
+    # Frontend
+    location / {
+        proxy_pass         http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection 'upgrade';
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # API Gateway
+    location /api/ {
+        proxy_pass         http://localhost:4000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
 ```bash
-cd calculator-service && npm run dev  # → :4002
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/calculator /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+sudo systemctl enable nginx
 ```
 
-**Terminal 3 — User Service**
+### Access
+
+```
+http://<EC2_PUBLIC_IP>        → Frontend
+http://<EC2_PUBLIC_IP>/api/   → API Gateway
+```
+
+### PM2 Useful Commands
+
 ```bash
-cd user-service && npm run dev        # → :4003
+pm2 status                    # see all services
+pm2 logs auth-service         # tail logs
+pm2 restart all               # restart everything
+pm2 stop all                  # stop everything
+pm2 delete all                # remove from PM2
 ```
-
-**Terminal 4 — API Gateway**
-```bash
-cd api-gateway && npm run dev         # → :4000
-```
-
-**Terminal 5 — Frontend**
-```bash
-cd frontend && npm run dev            # → :3000
-```
-
-Open browser → **http://localhost:3000**
 
 ---
 
-## Port Map
+## Method 2 — Docker on AWS EC2
 
-| Service              | Port | Description                        |
-|----------------------|------|------------------------------------|
-| Frontend (Next.js)   | 3000 | Browser UI                         |
-| API Gateway          | 4000 | Single entry point for all API     |
-| Auth Service         | 4001 | Register, login, JWT               |
-| Calculator Service   | 4002 | Math calculations + history        |
-| User Service         | 4003 | Profile + per-operation stats      |
-| PostgreSQL           | 5432 | Persistent database                |
-| Redis                | 6379 | Cache + rate limiting + blacklist  |
+Deploy everything using Docker Compose on a single EC2 instance.
+
+### Step 1 — Launch EC2 Instance
+
+Same as Method 1 but use **t3.medium** minimum.
+Security group ports: 22, 80, 443, 3000, 4000.
+
+### Step 2 — SSH and Install Docker
+
+```bash
+ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
+
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+sudo apt install -y docker.io
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-linux-x86_64" \
+  -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Allow ubuntu user to run Docker
+sudo usermod -aG docker ubuntu
+newgrp docker
+
+# Verify
+docker --version
+docker-compose --version
+```
+
+### Step 3 — Upload the Project
+
+```bash
+# On your LOCAL machine
+scp -i your-key.pem -r branch-3-calculator ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/
+```
+
+### Step 4 — Configure Environment
+
+```bash
+# On the SERVER
+cd /home/ubuntu/branch-3-calculator
+```
+
+Edit `docker-compose.yml` — update these values in every service:
+```yaml
+JWT_SECRET:     your_very_long_random_jwt_secret_here
+DB_PASSWORD:    your_strong_password
+FRONTEND_URL:   http://<EC2_PUBLIC_IP>:3000
+```
+
+Also update the frontend service:
+```yaml
+frontend:
+  environment:
+    NEXT_PUBLIC_API_URL: http://<EC2_PUBLIC_IP>:4000
+```
+
+### Step 5 — Build and Run
+
+```bash
+docker-compose up --build -d
+```
+
+The `-d` flag runs everything in the background (detached mode).
+
+```bash
+# Check all containers are running
+docker ps
+
+# View logs
+docker-compose logs -f
+
+# View logs of one service
+docker-compose logs -f auth-service
+```
+
+### Step 6 — Install Nginx (optional but recommended)
+
+```bash
+sudo apt install -y nginx
+sudo nano /etc/nginx/sites-available/calculator
+```
+
+```nginx
+server {
+    listen 80;
+    server_name <EC2_PUBLIC_IP>;
+
+    location / {
+        proxy_pass         http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection 'upgrade';
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api/ {
+        proxy_pass         http://localhost:4000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/calculator /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+```
+
+### Step 7 — Auto-start on Reboot
+
+```bash
+sudo systemctl enable docker
+
+# Create a systemd service for docker-compose
+sudo nano /etc/systemd/system/calculator.service
+```
+
+```ini
+[Unit]
+Description=Calculator Microservices
+Requires=docker.service
+After=docker.service
+
+[Service]
+WorkingDirectory=/home/ubuntu/branch-3-calculator
+ExecStart=/usr/local/bin/docker-compose up
+ExecStop=/usr/local/bin/docker-compose down
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable calculator
+sudo systemctl start calculator
+```
+
+### Access
+
+```
+http://<EC2_PUBLIC_IP>     → Frontend (via Nginx)
+http://<EC2_PUBLIC_IP>:3000 → Frontend (direct)
+http://<EC2_PUBLIC_IP>:4000 → API Gateway (direct)
+```
+
+### Useful Commands
+
+```bash
+# Stop all
+docker-compose down
+
+# Restart all
+docker-compose restart
+
+# Update code and redeploy
+git pull
+docker-compose up --build -d
+
+# Check resource usage
+docker stats
+```
 
 ---
 
-## API Reference
+## Method 3 — Kubernetes on AWS EKS
 
-All requests go through the **API Gateway at port 4000**.
-The frontend never calls services directly.
+Deploy as a production-grade Kubernetes cluster on Amazon EKS.
 
-### Auth — Public
+### Prerequisites — Install Tools Locally
 
 ```bash
-# Register
-curl -X POST http://localhost:4000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"John","email":"john@test.com","password":"secret123"}'
+# Install AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip && sudo ./aws/install
+aws configure   # enter your AWS Access Key, Secret, region
 
-# Login
-curl -X POST http://localhost:4000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"john@test.com","password":"secret123"}'
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install eksctl
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+
+# Verify
+aws --version
+kubectl version --client
+eksctl version
 ```
 
-### Auth — Protected
+### Step 1 — Push Docker Images to ECR
 
 ```bash
-# Get current user
-curl http://localhost:4000/api/v1/auth/me \
-  -H "Authorization: Bearer <token>"
+# Create ECR repositories
+aws ecr create-repository --repository-name calc-api-gateway        --region us-east-1
+aws ecr create-repository --repository-name calc-auth-service       --region us-east-1
+aws ecr create-repository --repository-name calc-calculator-service --region us-east-1
+aws ecr create-repository --repository-name calc-user-service       --region us-east-1
+aws ecr create-repository --repository-name calc-frontend           --region us-east-1
 
-# Logout (blacklists token in Redis)
-curl -X POST http://localhost:4000/api/v1/auth/logout \
-  -H "Authorization: Bearer <token>"
+# Login to ECR
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+# Build and push each image
+ECR=<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+# API Gateway
+docker build -t calc-api-gateway ./api-gateway
+docker tag  calc-api-gateway:latest $ECR/calc-api-gateway:latest
+docker push $ECR/calc-api-gateway:latest
+
+# Auth Service
+docker build -t calc-auth-service ./auth-service
+docker tag  calc-auth-service:latest $ECR/calc-auth-service:latest
+docker push $ECR/calc-auth-service:latest
+
+# Calculator Service
+docker build -t calc-calculator-service ./calculator-service
+docker tag  calc-calculator-service:latest $ECR/calc-calculator-service:latest
+docker push $ECR/calc-calculator-service:latest
+
+# User Service
+docker build -t calc-user-service ./user-service
+docker tag  calc-user-service:latest $ECR/calc-user-service:latest
+docker push $ECR/calc-user-service:latest
+
+# Frontend
+docker build -t calc-frontend ./frontend
+docker tag  calc-frontend:latest $ECR/calc-frontend:latest
+docker push $ECR/calc-frontend:latest
 ```
 
-### Calculator — Protected
+### Step 2 — Create EKS Cluster
 
 ```bash
-# Calculate
-curl -X POST http://localhost:4000/api/v1/calculator/calculate \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"a":10,"b":3,"operator":"+"}'
+eksctl create cluster \
+  --name calculator-cluster \
+  --region us-east-1 \
+  --nodegroup-name calculator-nodes \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 2 \
+  --nodes-max 4 \
+  --managed
 
-# Get history
-curl http://localhost:4000/api/v1/calculator/history \
-  -H "Authorization: Bearer <token>"
-
-# Delete one entry
-curl -X DELETE http://localhost:4000/api/v1/calculator/history/5 \
-  -H "Authorization: Bearer <token>"
-
-# Clear all history
-curl -X DELETE http://localhost:4000/api/v1/calculator/history \
-  -H "Authorization: Bearer <token>"
+# Takes ~15 minutes. Verify:
+kubectl get nodes
 ```
 
-### User — Protected
+### Step 3 — Create Kubernetes Secrets
 
 ```bash
-# Get profile
-curl http://localhost:4000/api/v1/users/profile \
-  -H "Authorization: Bearer <token>"
-
-# Get stats
-curl http://localhost:4000/api/v1/users/stats \
-  -H "Authorization: Bearer <token>"
-
-# Update name
-curl -X PATCH http://localhost:4000/api/v1/users/profile \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"New Name"}'
+kubectl create secret generic calculator-secrets \
+  --from-literal=db-password=your_strong_password \
+  --from-literal=jwt-secret=your_very_long_random_jwt_secret_here \
+  --from-literal=redis-password=your_redis_password
 ```
 
-### Health checks
+### Step 4 — Deploy PostgreSQL and Redis
 
 ```bash
-curl http://localhost:4000/health   # gateway
-curl http://localhost:4001/health   # auth-service
-curl http://localhost:4002/health   # calculator-service
-curl http://localhost:4003/health   # user-service
+# Create namespace
+kubectl create namespace calculator
+
+# Deploy PostgreSQL
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: calculator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_DB
+          value: calculator_db
+        - name: POSTGRES_USER
+          value: calculator_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: db-password
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: calculator
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+EOF
+
+# Deploy Redis
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: calculator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: calculator
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+EOF
+```
+
+### Step 5 — Deploy Microservices
+
+```bash
+ECR=<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+# Auth Service
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: calculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: $ECR/calc-auth-service:latest
+        ports:
+        - containerPort: 4001
+        env:
+        - name: PORT
+          value: "4001"
+        - name: NODE_ENV
+          value: production
+        - name: DB_HOST
+          value: postgres
+        - name: DB_NAME
+          value: calculator_db
+        - name: DB_USER
+          value: calculator_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: db-password
+        - name: REDIS_HOST
+          value: redis
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: calculator
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - port: 4001
+    targetPort: 4001
+EOF
+
+# Calculator Service
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calculator-service
+  namespace: calculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: calculator-service
+  template:
+    metadata:
+      labels:
+        app: calculator-service
+    spec:
+      containers:
+      - name: calculator-service
+        image: $ECR/calc-calculator-service:latest
+        ports:
+        - containerPort: 4002
+        env:
+        - name: PORT
+          value: "4002"
+        - name: NODE_ENV
+          value: production
+        - name: DB_HOST
+          value: postgres
+        - name: DB_NAME
+          value: calculator_db
+        - name: DB_USER
+          value: calculator_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: db-password
+        - name: REDIS_HOST
+          value: redis
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calculator-service
+  namespace: calculator
+spec:
+  selector:
+    app: calculator-service
+  ports:
+  - port: 4002
+    targetPort: 4002
+EOF
+
+# User Service
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: calculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: $ECR/calc-user-service:latest
+        ports:
+        - containerPort: 4003
+        env:
+        - name: PORT
+          value: "4003"
+        - name: NODE_ENV
+          value: production
+        - name: DB_HOST
+          value: postgres
+        - name: DB_NAME
+          value: calculator_db
+        - name: DB_USER
+          value: calculator_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: db-password
+        - name: REDIS_HOST
+          value: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: calculator
+spec:
+  selector:
+    app: user-service
+  ports:
+  - port: 4003
+    targetPort: 4003
+EOF
+
+# API Gateway
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: calculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: $ECR/calc-api-gateway:latest
+        ports:
+        - containerPort: 4000
+        env:
+        - name: PORT
+          value: "4000"
+        - name: NODE_ENV
+          value: production
+        - name: AUTH_SERVICE_URL
+          value: http://auth-service:4001
+        - name: CALC_SERVICE_URL
+          value: http://calculator-service:4002
+        - name: USER_SERVICE_URL
+          value: http://user-service:4003
+        - name: REDIS_HOST
+          value: redis
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: calculator-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: calculator
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - port: 4000
+    targetPort: 4000
+EOF
+
+# Frontend
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: calculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: $ECR/calc-frontend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: http://api-gateway:4000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: calculator
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+EOF
+```
+
+### Step 6 — Create Load Balancer Ingress
+
+```bash
+# Install AWS Load Balancer Controller
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+# Apply ingress
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: calculator-ingress
+  namespace: calculator
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 4000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 3000
+EOF
+```
+
+### Step 7 — Get Public URL
+
+```bash
+# Wait for load balancer to be assigned
+kubectl get ingress -n calculator
+
+# Get the ADDRESS column — that is your public URL
+# Example: k8s-calculat-xxx.us-east-1.elb.amazonaws.com
+```
+
+### Step 8 — Verify Everything Running
+
+```bash
+# Check all pods are Running
+kubectl get pods -n calculator
+
+# Check all services
+kubectl get services -n calculator
+
+# View logs of a pod
+kubectl logs -n calculator deployment/auth-service
+kubectl logs -n calculator deployment/api-gateway
+
+# Scale a service up or down
+kubectl scale deployment calculator-service --replicas=3 -n calculator
+```
+
+### Cleanup — Delete Everything
+
+```bash
+# Delete the cluster (stops all billing)
+eksctl delete cluster --name calculator-cluster --region us-east-1
+
+# Delete ECR images
+aws ecr delete-repository --repository-name calc-api-gateway        --force --region us-east-1
+aws ecr delete-repository --repository-name calc-auth-service       --force --region us-east-1
+aws ecr delete-repository --repository-name calc-calculator-service --force --region us-east-1
+aws ecr delete-repository --repository-name calc-user-service       --force --region us-east-1
+aws ecr delete-repository --repository-name calc-frontend           --force --region us-east-1
 ```
 
 ---
 
-## Redis Usage
+## Deployment Comparison
 
-| Key pattern         | TTL    | Purpose                               |
-|---------------------|--------|---------------------------------------|
-| `rate:<ip>`         | 60s    | Rate limiting — 100 req/min per IP    |
-| `blacklist:<token>` | 7 days | Revoked JWT tokens after logout       |
-| `session:<userId>`  | 7 days | Cached user session (auth-service)    |
-| `history:<userId>`  | 60s    | Cached calculation history page 1     |
-| `profile:<userId>`  | 5 min  | Cached user profile (user-service)    |
-| `stats:<userId>`    | 2 min  | Cached operation stats (user-service) |
-
-The UI shows a green **"cached"** badge on history and stats when Redis serves the data.
-
----
-
-## How Services Communicate
-
-```
-1. Browser sends request with JWT in Authorization header
-2. API Gateway receives it on port 4000
-3. Gateway verifies JWT + checks Redis blacklist
-4. Gateway injects x-user-id and x-user-email headers
-5. Gateway proxies request to the correct service
-6. Service reads x-user-id header (trusts the gateway)
-7. Service checks Redis cache → hits DB on miss → caches result
-8. Response flows back through gateway to browser
-```
-
-In Docker mode, services are on a private internal network (`calc_network`).
-Only port 4000 (gateway) and 3000 (frontend) are accessible from your machine.
-
----
-
-## Common Issues & Fixes
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `address already in use :5432` | Local PostgreSQL running | `sudo systemctl stop postgresql` |
-| `address already in use :6379` | Local Redis running | `sudo systemctl stop redis-server` |
-| `EAI_AGAIN postgres` | Services started before DB ready | Wait — they auto-retry. Or run `sudo docker-compose down -v && sudo docker-compose up` |
-| `Ctrl+C not working` | Terminal stuck | Open new terminal → `sudo docker stop $(sudo docker ps -q)` |
-| `docker compose: unknown command` | Wrong syntax | Use `docker-compose` with hyphen, not space |
-| `public folder not found` in build | No public/ dir in project | Use the Dockerfile without the public COPY line |
-| `newgrp: command not found` | Package not installed | `sudo apt install login` then `newgrp docker` |
+| Factor           | Bare Metal EC2        | Docker EC2            | Kubernetes EKS              |
+|------------------|-----------------------|-----------------------|-----------------------------|
+| Complexity       | Medium                | Low                   | High                        |
+| Cost             | Low (~$30/mo)         | Low (~$30/mo)         | High (~$150+/mo)            |
+| Scaling          | Manual                | Manual                | Automatic                   |
+| Fault tolerance  | None                  | Container restart     | Pod auto-healing            |
+| Best for         | Learning / small apps | Staging / small prod  | Large scale production      |
+| Setup time       | ~1 hour               | ~30 minutes           | ~2 hours                    |
+| Zero downtime    | No                    | No                    | Yes (rolling updates)       |
 
 ---
 
@@ -456,8 +1102,6 @@ Only port 4000 (gateway) and 3000 (frontend) are accessible from your machine.
 cd ~/Calculator
 git checkout main
 git checkout -b branch-3
-
-# Copy branch-3 contents here, then:
 git add .
 git commit -m "feat: Branch 3 - Microservices + Redis + Docker"
 git push -u origin branch-3
@@ -470,11 +1114,11 @@ git push -u origin branch-3
 - Microservices architecture — each service owns its domain
 - API Gateway pattern — single entry point, JWT verified once
 - Redis for caching, rate limiting, and token blacklisting
-- Inter-service communication via HTTP with trusted headers
 - Docker and Docker Compose — containerizing Node.js apps
-- Multi-stage Docker builds for optimized production images
-- Health checks and service dependencies in Docker Compose
-- Stateless services — all state lives in PostgreSQL or Redis
+- Multi-stage Docker builds for production images
+- Deploying to EC2 with PM2 and Nginx
+- Containerized deployment with Docker Compose on EC2
+- Kubernetes on EKS — pods, services, ingress, secrets, scaling
 
 ---
 
