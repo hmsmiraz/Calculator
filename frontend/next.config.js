@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Allow the frontend to call the backend API during development
+  output: 'standalone',
   async rewrites() {
     return [
       {
